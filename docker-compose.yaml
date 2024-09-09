@@ -7,11 +7,11 @@ services:
       - "8888:8888"  # JupyterLab
     volumes:
       - ./data/dags:/app/dags  # Direktori data JupyterLab di host
-      - ./data/envs:/app/envs  # Direktori environment Conda di host
+      - shared-env:/opt/conda/envs  # Direktori environment Conda yang dibagikan
       - ./config:/root/.jupyter  # Direktori konfigurasi JupyterLab di host
     environment:
       - TZ=Asia/Jakarta  # Set zona waktu Jakarta
-    command: bash -c "source activate myenv && jupyter lab --NotebookApp.token=Exim2024!! --ip=0.0.0.0 --no-browser --allow-root"
+    command: bash -c "source activate /opt/conda/envs/myenv && jupyter lab --NotebookApp.token=admin --ip=0.0.0.0 --no-browser --allow-root"
 
   airflow-webserver:
     build: .
@@ -19,36 +19,38 @@ services:
       - "8080:8080"  # Airflow webserver
     volumes:
       - ./data/dags:/app/airflow/dags  # Direktori DAGs di host
-      - ./data/envs:/app/envs  # Direktori environment Conda di host
+      - shared-env:/opt/conda/envs  # Direktori environment Conda yang dibagikan
     environment:
       - AIRFLOW_HOME=/app/airflow
       - AIRFLOW__CORE__SQL_ALCHEMY_CONN=mysql+pymysql://airflow:airflow@mysql/airflow
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor  # Set LocalExecutor sebagai executor
       - AIRFLOW__CORE__LOAD_EXAMPLES=False  # Nonaktifkan contoh DAGs
+      - AIRFLOW__WEBSERVER__SECRET_KEY=simpeg_secret_key
       - TZ=Asia/Jakarta  # Set zona waktu Jakarta
     depends_on:
       - mysql
-    command: bash -c "source activate myenv && airflow db init && airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com && airflow webserver --host 0.0.0.0 --port 8080"
+    command: bash -c "source activate /opt/conda/envs/myenv && airflow db init && airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com && airflow webserver --host 0.0.0.0 --port 8080"
 
   airflow-scheduler:
     build: .
     volumes:
       - ./data/dags:/app/airflow/dags  # Direktori DAGs di host
-      - ./data/envs:/app/envs  # Direktori environment Conda di host
+      - shared-env:/opt/conda/envs  # Direktori environment Conda yang dibagikan
     environment:
       - AIRFLOW_HOME=/app/airflow
       - AIRFLOW__CORE__SQL_ALCHEMY_CONN=mysql+pymysql://airflow:airflow@mysql/airflow
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor  # Set LocalExecutor sebagai executor
       - AIRFLOW__CORE__LOAD_EXAMPLES=False  # Nonaktifkan contoh DAGs
+      - AIRFLOW__WEBSERVER__SECRET_KEY=simpeg_secret_key
       - TZ=Asia/Jakarta  # Set zona waktu Jakarta
     depends_on:
       - mysql
-    command: bash -c "source activate myenv && airflow scheduler"
+    command: bash -c "source activate /opt/conda/envs/myenv && airflow scheduler"
 
   mysql:
     image: mysql:latest
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=rootpassword
       - MYSQL_DATABASE=airflow
@@ -60,7 +62,7 @@ services:
   phpmyadmin:
     image: phpmyadmin/phpmyadmin:latest
     ports:
-      - "8081:80"  # Port untuk phpMyAdmin
+      - "127.0.0.1:8081:80"  # Port untuk phpMyAdmin
     environment:
       - PMA_HOST=mysql
       - PMA_PORT=3306
@@ -69,4 +71,5 @@ services:
     depends_on:
       - mysql
 
-# Tidak perlu mendefinisikan volume di sini jika hanya menggunakan volume yang di-mount dari direktori host
+volumes:
+  shared-env:
